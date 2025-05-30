@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bt.service.query.mapper.PlaneTypeMapper">
+
+
+    <select id="list" resultType="planeTypeResponse" parameterType="planeTypeRequest">
+        select id, name
+        from plane_type
+        where id in (select plane_type_id from flight where depart_city_id = #{departedCityId} and arrived_city_id = #{arrivedCityId})
+        order by id
+    </select>
+
+
+</mapper>

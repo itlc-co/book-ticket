@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bt.service.query.mapper.FlightMapper">
+
+    <resultMap id="flightResponse" type="flightResponse">
+        <id column="id" property="id" javaType="long" jdbcType="BIGINT"/>
+        <result column="flight_no" property="flightNo" javaType="string" jdbcType="VARCHAR"/>
+        <result column="depart_time" property="departTime" javaType="java.time.LocalTime" jdbcType="TIME"/>
+        <result column="arrived_time" property="arrivedTime" javaType="java.time.LocalTime" jdbcType="TIME"/>
+        <result column="departed_airport" property="departedAirport" javaType="string" jdbcType="VARCHAR"/>
+        <result column="arrived_airport" property="arrivedAirport" javaType="string" jdbcType="VARCHAR"/>
+        <result column="inventory" property="inventory" jdbcType="INTEGER" javaType="int"/>
+        <result column="price" property="price" javaType="java.math.BigDecimal" jdbcType="DECIMAL"/>
+        <result column="airlines_name" property="airlinesName" javaType="string" jdbcType="VARCHAR"/>
+        <result column="flight_time" property="flightTime" javaType="java.time.Instant" jdbcType="TIME"
+                typeHandler="org.apache.ibatis.type.InstantTypeHandler"/>
+        <result column="plane_type_name" property="planeTypeName" javaType="string" jdbcType="VARCHAR"/>
+        <result column="depart_city_name" property="departedCityName" javaType="string" jdbcType="VARCHAR"/>
+        <result column="arrived_city_name" property="arrivedCityName" javaType="string" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <!--价格查询-->
+    <sql id="price">
+        ( SELECT MIN( price ) FROM seat_type st WHERE st.flight_id = f.id
+        <trim prefix="AND" suffixOverrides=",">
+            <if test="seatTypes != null and seatTypes.size() > 0">
+                seat_type in
+                <foreach collection="seatTypes" index="index" item="seatType" open="(" close=")" separator=",">
+                    #{seatType}
+                </foreach>
+            </if>
+        </trim>
+        ) price
+    </sql>
+
+    <!--排序-->
+    <sql id="orderBy">
+        <trim prefix="ORDER BY" prefixOverrides="ORDER BY">
+            <choose>
+                <when test="orderByColumn != null and orderType != null">
+                    <choose>
+                        <when test="orderType != null and orderByColumn == 'price'">
+                            ${orderByColumn} ${orderType},
+                            depart_time ASC
+                        </when>
+                        <when test="orderType != null and orderByColumn == 'depart_time'">
+                            ${orderByColumn} ${orderType},
+                            price ASC
+                        </when>
+                    </choose>
+                </when>
+                <otherwise>
+                    price ASC,
+                    depart_time ASC
+                </otherwise>
+            </choose>
+        </trim>
+    </sql>
+
+    <!--    分页-->
+    <sql id="limit">
+        <if test="offset != null and pageSize != null">limit #{offset},#{pageSize}</if>
+    </sql>
+
+
+    <!--库存查询-->
+    <sql id="inventory">
+        (f.max_capacity-
+        ( SELECT IFNULL( SUM( o.num ), 0 ) FROM `order` o WHERE o.order_date = #{flightDate}
+        AND o.STATUS = 0)) AS
+        inventory
+    </sql>
+
+    <!--    查询飞行时间-->
+    <sql id="flightTime">
+        (SEC_TO_TIME (
+            ABS(TIME_TO_SEC(f.arrived_time) - TIME_TO_SEC(f.depart_time))
+            )
+        )
+        AS flight_time
+    </sql>
+
+    <select id="list" resultMap="flightResponse" parameterType="flightRequest">
+        SELECT
+        f.id id,
+        f.flight_no,
+        f.depart_time,
+        f.arrived_time,
+        f.max_capacity,
+        f.departed_airport,
+        f.arrived_airport,
+        f.airlines_name,
+        f.plane_type_name,
+        f.depart_city_name,
+        f.arrived_city_name,
+        <include refid="flightTime"/>,
+        <include refid="inventory"/>,
+        <include refid="price"/>
+        FROM flight f
+        <where>
+            <trim prefixOverrides="AND|OR" suffixOverrides=",">
+                <if test="departedCityId != null">AND f.depart_city_id = #{departedCityId}</if>
+                <if test="arrivedCityId != null">AND f.arrived_city_id = #{arrivedCityId}</if>
+                <if test="flightNo != null">AND flight_no = #{flightNo}</if>
+                <if test="airlinesIds != null and airlinesIds.size() > 0">
+                    AND
+                    airline_id IN
+                    <foreach collection="airlinesIds" item="airlinesId" index="index" open="(" separator="," close=")">
+                        #{airlinesId}
+                    </foreach>
+                </if>
+                <if test="planeTypeIds != null and planeTypeIds.size() > 0">
+                    AND
+                    plane_type_id IN
+                    <foreach collection="planeTypeIds" item="planeTypeId" index="index" open="(" separator=","
+                             close=")">
+                        #{planeTypeId}
+                    </foreach>
+                </if>
+                <if test="departedTimeList != null and departedTimeList.size() > 0">
+                    AND
+                    <foreach collection="departedTimeList" separator="OR" open="(" close=")" index="index"
+                             item="departedTime">
+                        <if test="departedTime != null and (departedTime.startTime != null and departedTime.endTime != null)">
+                            f.depart_time BETWEEN #{departedTime.startTime} AND #{departedTime.endTime}
+                        </if>
+                    </foreach>
+                </if>
+                <if test="departedAirPorts != null and departedAirPorts.size() > 0">
+                    AND
+                    f.departed_airport IN
+                    <foreach collection="departedAirPorts" item="departedAirPort" index="index" close=")" open="("
+                             separator=",">
+                        #{departedAirPort}
+                    </foreach>
+                </if>
+                AND is_deleted = 0
+                AND is_published = 0
+                HAVING
+                price IS NOT NULL
+                AND ( inventory > 0 OR inventory IS NULL )
+            </trim>
+        </where>
+        <include refid="orderBy"/>
+    </select>
+
+
+    <select id="page" resultMap="flightResponse" parameterType="flightRequest">
+        SELECT
+        f.id id,
+        f.flight_no,
+        f.depart_time,
+        f.arrived_time,
+        f.max_capacity,
+        f.departed_airport,
+        f.arrived_airport,
+        f.airlines_name,
+        f.plane_type_name,
+        f.depart_city_name,
+        f.arrived_city_name,
+        <include refid="flightTime"/>,
+        <include refid="inventory"/>,
+        <include refid="price"/>
+        FROM flight f
+        <where>
+            <trim prefixOverrides="AND|OR" suffixOverrides=",">
+                <if test="departedCityId != null">AND f.depart_city_id = #{departedCityId}</if>
+                <if test="arrivedCityId != null">AND f.arrived_city_id = #{arrivedCityId}</if>
+                <if test="flightNo != null">AND flight_no = #{flightNo}</if>
+                <if test="airlinesIds != null and airlinesIds.size() > 0">
+                    AND
+                    airline_id IN
+                    <foreach collection="airlinesIds" item="airlinesId" index="index" open="(" separator="," close=")">
+                        #{airlinesId}
+                    </foreach>
+                </if>
+                <if test="planeTypeIds != null and planeTypeIds.size() > 0">
+                    AND
+                    plane_type_id IN
+                    <foreach collection="planeTypeIds" item="planeTypeId" index="index" open="(" separator="," close=")">
+                        #{planeTypeId}
+                    </foreach>
+                </if>
+                <if test="departedTimeList != null and departedTimeList.size() > 0">
+                    AND
+                    <foreach collection="departedTimeList" separator="OR" open="(" close=")" index="index" item="departedTime">
+                        <if test="departedTime != null and (departedTime.startTime != null and departedTime.endTime != null)">
+                            f.depart_time BETWEEN #{departedTime.startTime} AND #{departedTime.endTime}
+                        </if>
+                    </foreach>
+                </if>
+                <if test="departedAirPorts != null and departedAirPorts.size() > 0">
+                    AND
+                    f.departed_airport IN
+                    <foreach collection="departedAirPorts" item="departedAirPort" index="index" close=")" open="("
+                             separator=",">
+                        #{departedAirPort}
+                    </foreach>
+                </if>
+                AND is_deleted = 0
+                AND is_published = 0
+                HAVING
+                price IS NOT NULL
+                AND ( inventory > 0 OR inventory IS NULL )
+            </trim>
+        </where>
+        <include refid="orderBy"/>
+    </select>
+
+
+
+
+</mapper>

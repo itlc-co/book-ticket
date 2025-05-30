@@ -1,0 +1,43 @@
+server:
+  #  端口号
+  port: 89
+  servlet:
+    #    服务上下文路径
+    context-path: /query
+spring:
+  application:
+    #    应用名
+    name: book-ticket-query
+  #    数据源配置
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource      # 当前数据源操作类型
+    driver-class-name: com.mysql.cj.jdbc.Driver            # mysql驱动包
+    url: jdbc:mysql://127.0.0.1:3306/book-ticket?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai  #url
+    username: root #用户名
+    password: 123456 #密码
+  resources:
+    #    禁用资源映射全局异常才能捕获到404异常
+    add-mappings: false
+  mvc:
+    #    打开寻找不到处理器则抛出异常
+    throw-exception-if-no-handler-found: true
+  #   redis配置
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    password: 123456
+
+# mybatis-plus配置
+mybatis-plus:
+  mapperLocations: classpath:mappers/*.xml  # mapper映射xml为文件路径
+  type-aliases-package: com.bt.service.query.entity    # 所有Entity别名类所在包
+  configuration:
+    map-underscore-to-camel-case: true # 开启驼峰下划线转换
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 日志输出实现类
+    cache-enabled: true # 开启二级缓存
+
+logging:
+  config: classpath:log4j2.xml
+  level:
+    com.bt: debug
+    org.springframework: warn

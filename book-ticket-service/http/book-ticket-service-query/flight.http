@@ -1,0 +1,44 @@
+###
+@flightId = 1
+GET localhost:89/query/flight/{{flightId}}
+
+
+
+
+###
+GET localhost:89/query/flight/list?departedCityId=20&flightDate=2025-05-30
+
+
+###
+GET localhost:89/query/flight/page?departedCityId=20&flightDate=2025-05-30
+
+
+
+###
+GET localhost:89/query/flight/flightNo?flightNo=MU2378
+
+
+
+###
+GET localhost:89/query/airlines/list?departedCityId=1&arrivedCityId=14
+
+
+###
+GET localhost:89/query/planeType/list?departedCityId=1&arrivedCityId=14
+
+
+###
+GET localhost:89/query/airport/list/1
+
+
+###
+GET localhost:89/query/seatType/list?flightId={{flightId}}&flightDate=2025-05-30
+
+
+###
+@seatTypeId = 1
+GET localhost:89/query/seatType/{{seatTypeId}}
+
+
+###
+GET localhost:89/query/city/list

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bt.service.query.mapper.CityMapper">
+
+
+    <select id="list" resultType="cityResponse">
+        SELECT id                   value,
+               city_name            label,
+               UPPER(simple_code)   simple_code,
+               UPPER(category_code) category_code
+        FROM city
+        ORDER BY category_code ASC, simple_code ASC
+    </select>
+
+
+
+</mapper>

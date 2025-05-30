@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bt.service.query.mapper.SeatTypeMapper">
+
+
+    <resultMap id="seatTypeResponse" type="seatTypeResponse">
+        <id property="id" column="id" javaType="java.lang.Long" jdbcType="BIGINT"/>
+        <result property="price" column="price" javaType="java.math.BigDecimal" jdbcType="DECIMAL"/>
+        <result property="inventory" column="inventory" javaType="java.lang.Integer" jdbcType="INTEGER"/>
+        <result property="capacity" column="capacity" javaType="java.lang.Integer" jdbcType="INTEGER"/>
+        <result property="used" column="used" javaType="java.lang.Integer" jdbcType="INTEGER"/>
+        <result property="seatType" column="seat_type" javaType="java.lang.String" jdbcType="VARCHAR"/>
+    </resultMap>
+
+<!--    <resultMap id="seatTypeInventory" type="seatTypeResponse">-->
+<!--        <id property="id" column="id" javaType="java.lang.Long" jdbcType="BIGINT"/>-->
+<!--        <result property="ttl" column="ttl" javaType="java.lang.Long" jdbcType="BIGINT"/>-->
+<!--        <result property="inventory" column="inventory" javaType="java.lang.Integer" jdbcType="INTEGER"/>-->
+<!--        <result property="flightId" column="flight_id" javaType="java.lang.Long" jdbcType="BIGINT"/>-->
+<!--        <result property="flightDate" column="flight_date" javaType="java.time.LocalDate" jdbcType="DATE"-->
+<!--                typeHandler="org.apache.ibatis.type.LocalDateTypeHandler"/>-->
+<!--    </resultMap>-->
+
+
+    <!--    查询指定航班日期的库存使用量-->
+    <sql id="seatTypeUsed">
+        SELECT IFNULL(SUM(num), 0)
+        FROM `order` o
+        WHERE o.flight_id = st.flight_id
+          AND o.seat_type_id = st.id
+          AND order_date = #{flightDate}
+          AND o.`status` = 0
+          AND o.is_deleted = 0
+    </sql>
+
+
+    <!--查询库存-->
+    <sql id="seatTypeInventory">
+        (st.capacity - (
+        <include refid="seatTypeUsed"/>
+        ))
+        AS inventory
+    </sql>
+
+    <!--    seatType类型case匹配-->
+    <sql id="seatType">
+        (
+            CASE st.seat_type
+            WHEN 0 THEN '经济舱'
+            WHEN 1 THEN '公务舱'
+            ELSE '商务舱'
+            END)
+    </sql>
+
+    <!--    seatType按照价格排序-->
+    <sql id="seatTypeSort">
+        ORDER BY st.price ASC
+    </sql>
+
+
+
+
+    <select id="list" resultMap="seatTypeResponse">
+        SELECT
+        st.id id,
+        st.price price,
+        st.capacity capacity,
+        (<include refid="seatTypeUsed"/>) AS used,
+        <include refid="seatType"/>
+        AS seat_type,
+        <include refid="seatTypeInventory"/>
+        FROM seat_type st
+        <where>
+            <trim prefixOverrides="AND">
+                <if test="flightId != null and flightId > 0">
+                    AND st.flight_id = #{flightId}
+                </if>
+                <include refid="seatTypeSort"/>
+                LIMIT 0,3
+            </trim>
+        </where>
+    </select>
+
+
+
+    <!--    指定舱位类型id查询-->
+    <select id="selectOneById" resultType="seatTypeResponse">
+        SELECT st.id id,
+        <include refid="seatType"/>
+        AS seat_type,
+        st.price price
+        FROM seat_type st
+        <where>
+            <trim prefixOverrides="AND">
+                <if test="seatTypeId != null and seatTypeId > 0">
+                    AND st.id = #{seatTypeId}
+                </if>
+            </trim>
+        </where>
+    </select>
+
+<!--    &lt;!&ndash;    所有舱位类型的库存&ndash;&gt;-->
+<!--    <select id="seatTypeList" resultType="com.bt.common.entity.SeatTypeCommonEntity" parameterType="java.lang.String">-->
+<!--        SELECT st.id,-->
+<!--        #{flightDate} as flight_date,-->
+<!--        <include refid="seatTypeInventory"/>,-->
+<!--        st.flight_id-->
+<!--        FROM seat_type st-->
+<!--    </select>-->
+
+<!--    &lt;!&ndash;    舱位类型库存查询&ndash;&gt;-->
+<!--    <select id="inventorys" resultMap="seatTypeInventory">-->
+<!--        SELECT st.flight_id,-->
+<!--        st.id,-->
+<!--        -(UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(STR_TO_DATE(CONCAT(#{flightDate},' ',time_format((SELECT f.depart_time-->
+<!--        FROM flight f WHERE f.id = st.flight_id),'%H:%i:%s')),'%Y-%m-%d %H:%i:%s'))) ttl,-->
+<!--        #{flightDate} flight_date,-->
+<!--        st.capacity - IFNULL((SELECT sum(num) FROM `order` o WHERE o.flight_id = st.flight_id AND o.seat_type_id = st.id-->
+<!--        AND o.order_date = #{flightDate}),0) inventory-->
+<!--        FROM seat_type st-->
+<!--        WHERE flight_id IN-->
+<!--        <foreach collection="flightIds" item="flightId" index="index" open="(" separator="," close=")">-->
+<!--            #{flightId}-->
+<!--        </foreach>-->
+<!--    </select>-->
+</mapper>
